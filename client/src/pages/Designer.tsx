@@ -403,64 +403,53 @@ function DesignerInner() {
     return () => window.removeEventListener('toggle-shortcut-console', handleToggleConsole);
   }, []);
 
-  if (!hasStarted && nodes.length === 0) {
-    return (
-      <div className="flex flex-col h-screen w-full bg-slate-50 items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
-          <div className="p-8 text-center border-b border-slate-100 bg-slate-50/50">
-            <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <PlusCircle className="w-10 h-10 text-primary" />
-            </div>
-            <h1 className="text-2xl font-bold text-slate-900 mb-2">
-              Welcome to WHAMO
-            </h1>
-            <p className="text-slate-500 text-sm">
-              Hydraulic Transient Analysis Software
-            </p>
-          </div>
-          
-          <div className="p-6 space-y-4">
-            <Button 
-              className="w-full h-14 text-lg font-semibold flex items-center justify-center gap-3 hover-elevate transition-all duration-200"
-              onClick={handleNewProject}
-              data-testid="button-new-project"
-            >
-              <PlusCircle className="w-5 h-5" />
-              New Project
-            </Button>
-            
-            <Button 
-              variant="outline"
-              className="w-full h-14 text-lg font-semibold flex items-center justify-center gap-3 hover-elevate transition-all duration-200"
-              onClick={handleOpenProject}
-              data-testid="button-open-project"
-            >
-              <Download className="w-5 h-5" />
-              Open Project
-            </Button>
-            
-            <div className="pt-4 text-center">
-              <p className="text-xs text-slate-400">
-                Design, simulate, and analyze water distribution networks.
+  return (
+    <div className="flex flex-col h-screen w-full overflow-hidden bg-background text-foreground relative">
+      {!hasStarted && nodes.length === 0 && (
+        <div className="absolute inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/10 backdrop-blur-[2px]">
+          <div className="max-w-md w-full bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in duration-300">
+            <div className="p-8 text-center border-b border-slate-100 bg-slate-50/50">
+              <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <PlusCircle className="w-10 h-10 text-primary" />
+              </div>
+              <h1 className="text-2xl font-bold text-slate-900 mb-2">
+                Welcome to WHAMO
+              </h1>
+              <p className="text-slate-500 text-sm font-medium">
+                Hydraulic Transient Analysis Software
               </p>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <Button 
+                className="w-full h-14 text-lg font-semibold flex items-center justify-center gap-3 hover-elevate transition-all duration-200"
+                onClick={handleNewProject}
+                data-testid="button-new-project"
+              >
+                <PlusCircle className="w-5 h-5" />
+                New Project
+              </Button>
+              
+              <Button 
+                variant="outline"
+                className="w-full h-14 text-lg font-semibold flex items-center justify-center gap-3 hover-elevate transition-all duration-200 bg-white"
+                onClick={handleOpenProject}
+                data-testid="button-open-project"
+              >
+                <Download className="w-5 h-5" />
+                Open Project
+              </Button>
+              
+              <div className="pt-4 text-center">
+                <p className="text-xs text-slate-400 font-medium">
+                  Design, simulate, and analyze water distribution networks.
+                </p>
+              </div>
             </div>
           </div>
         </div>
-        
-        {/* Hidden File Input for Open Project */}
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          onChange={handleFileChange} 
-          accept=".json,.inp" 
-          className="hidden" 
-        />
-      </div>
-    );
-  }
+      )}
 
-  return (
-    <div className="flex flex-col h-screen w-full overflow-hidden bg-background text-foreground">
       {/* Hidden File Input */}
       <input 
         type="file" 
