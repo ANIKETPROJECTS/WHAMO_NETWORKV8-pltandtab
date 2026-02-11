@@ -172,11 +172,11 @@ export function Header({
   };
 
   const handleExport = () => {
-    if (!projectName.trim()) {
+    if (!projectName.trim() || projectName === "Untitled Network") {
       setProjectNameError("Please enter a file name");
       toast({
         title: "Validation Error",
-        description: "Please enter a project name before downloading.",
+        description: "Please enter a specific project name before downloading.",
         variant: "destructive",
       });
       return;
@@ -185,11 +185,11 @@ export function Header({
   };
 
   const handleOutGenerate = () => {
-    if (!projectName.trim()) {
+    if (!projectName.trim() || projectName === "Untitled Network") {
       setProjectNameError("Please enter a file name");
       toast({
         title: "Validation Error",
-        description: "Please enter a project name before generating .OUT.",
+        description: "Please enter a specific project name before generating .OUT.",
         variant: "destructive",
       });
       return;
@@ -215,7 +215,7 @@ export function Header({
               placeholder="Enter project name..."
             />
             {projectNameError && (
-              <div className="flex items-center gap-1 text-xs text-yellow-600 font-medium ml-2">
+              <div className="flex items-center gap-1 text-[10px] text-yellow-600 font-medium ml-2 bg-yellow-50 px-2 py-0.5 rounded border border-yellow-200">
                 <AlertCircle className="w-3 h-3 text-destructive" />
                 {projectNameError}
               </div>
