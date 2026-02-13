@@ -3,7 +3,24 @@ import { saveAs } from 'file-saver';
 
 export function generateInpFile(nodes: WhamoNode[], edges: WhamoEdge[], autoDownload: boolean | string = true) {
   const state = useNetworkStore.getState();
+  const globalUnit = state.globalUnit;
   const lines: string[] = [];
+
+  const SI_TO_FPS = {
+    length: 3.28084, // m to ft
+    diameter: 3.28084, // m to ft
+    elevation: 3.28084, // m to ft
+    celerity: 3.28084, // m/s to ft/s
+    area: 10.7639, // m2 to ft2
+    flow: 35.3147, // m3/s to ft3/s
+  };
+
+  const toFPS = (value: number | undefined, currentUnit: UnitSystem, type: keyof typeof SI_TO_FPS): string => {
+    if (value === undefined) return '';
+    if (currentUnit === 'FPS') return value.toFixed(4);
+    const factor = SI_TO_FPS[type] || 1;
+    return (value * factor).toFixed(4);
+  };
 
   // Helper to add line
   const add = (str: string) => lines.push(str);
@@ -149,7 +166,8 @@ export function generateInpFile(nodes: WhamoNode[], edges: WhamoEdge[], autoDown
   sortedNodeIds.forEach(id => {
     const node = nodes.find(n => (n.data.nodeNumber?.toString() || n.id) === id);
     if (node && node.data.elevation !== undefined) {
-      const elev = typeof node.data.elevation === 'number' ? node.data.elevation.toFixed(1) : parseFloat(node.data.elevation).toFixed(1);
+      const unit = node.data.unit || globalUnit;
+      const elev = toFPS(Number(node.data.elevation), unit, 'elevation');
       addL(`    NODE ${id} ELEV ${elev}`);
     }
   });
@@ -164,10 +182,11 @@ export function generateInpFile(nodes: WhamoNode[], edges: WhamoEdge[], autoDown
   const exportedConduitLabels = new Set<string>();
 
   nodes.filter(n => n.type === 'reservoir').forEach(n => {
+    const unit = n.data.unit || globalUnit;
     addComment(n.data.comment);
     addL('RESERVOIR');
     addL(` ID ${n.data.label}`);
-    addL(` ELEV ${n.data.elevation}`);
+    addL(` ELEV ${toFPS(Number(n.data.elevation), unit, 'elevation')}`);
     addL(' FINISH');
     addL('');
   });
@@ -176,6 +195,7 @@ export function generateInpFile(nodes: WhamoNode[], edges: WhamoEdge[], autoDown
     const d = e.data;
     if (!d) return;
     
+    const unit = d.unit || globalUnit;
     const label = d.label || e.id;
     if (exportedConduitLabels.has(label)) return;
     exportedConduitLabels.add(label);
@@ -186,17 +206,17 @@ export function generateInpFile(nodes: WhamoNode[], edges: WhamoEdge[], autoDown
     
     if (d.variable) {
       addL(' VARIABLE');
-      if (d.distance !== undefined) addL(` DISTANCE ${d.distance}`);
-      if (d.area !== undefined) addL(` AREA ${d.area}`);
-      if (d.d !== undefined) addL(` D ${d.d}`);
-      if (d.a !== undefined) addL(` A ${d.a}`);
+      if (d.distance !== undefined) addL(` DISTANCE ${toFPS(Number(d.distance), unit, 'length')}`);
+      if (d.area !== undefined) addL(` AREA ${toFPS(Number(d.area), unit, 'area')}`);
+      if (d.d !== undefined) addL(` D ${toFPS(Number(d.d), unit, 'diameter')}`);
+      if (d.a !== undefined) addL(` A ${toFPS(Number(d.a), unit, 'area')}`);
     }
 
-    addL(` LENGTH ${d.length}`);
+    addL(` LENGTH ${toFPS(Number(d.length), unit, 'length')}`);
     if (!d.variable) {
-      addL(` DIAM ${d.diameter}`);
+      addL(` DIAM ${toFPS(Number(d.diameter), unit, 'diameter')}`);
     }
-    addL(` CELERITY ${d.celerity}`);
+    addL(` CELERITY ${toFPS(Number(d.celerity), unit, 'celerity')}`);
     addL(` FRICTION ${d.friction}`);
     
     if (d.cplus !== undefined || d.cminus !== undefined) {
@@ -215,10 +235,11 @@ export function generateInpFile(nodes: WhamoNode[], edges: WhamoEdge[], autoDown
   edges.filter(e => e.data?.type === 'dummy').forEach(e => {
     const d = e.data;
     if (!d) return;
+    const unit = d.unit || globalUnit;
     addComment(d.comment);
     addL(`CONDUIT ID ${d.label || e.id} `);
     addL(' DUMMY ');
-    addL(` DIAMETER ${d.diameter}`);
+    addL(` DIAMETER ${toFPS(Number(d.diameter), unit, 'diameter')}`);
     addL(' ADDEDLOSS ');
     if (d.cplus !== undefined) addL(` CPLUS ${d.cplus}`);
     if (d.cminus !== undefined) addL(` CMINUS ${d.cminus}`);
@@ -229,13 +250,14 @@ export function generateInpFile(nodes: WhamoNode[], edges: WhamoEdge[], autoDown
   nodes.filter(n => n.type === 'surgeTank').forEach(n => {
     const d = n.data;
     if (!d) return;
+    const unit = d.unit || globalUnit;
     addComment(d.comment);
     addL('SURGETANK ');
     addL(` ID ${d.label} SIMPLE`);
-    addL(` ELTOP ${d.tankTop}`);
-    addL(` ELBOTTOM ${d.tankBottom}`);
-    addL(` DIAM ${d.diameter}`);
-    addL(` CELERITY ${d.celerity}`);
+    addL(` ELTOP ${toFPS(Number(d.tankTop), unit, 'elevation')}`);
+    addL(` ELBOTTOM ${toFPS(Number(d.tankBottom), unit, 'elevation')}`);
+    addL(` DIAM ${toFPS(Number(d.diameter), unit, 'diameter')}`);
+    addL(` CELERITY ${toFPS(Number(d.celerity), unit, 'celerity')}`);
     addL(` FRICTION ${d.friction}`);
     addL('FINISH');
     addL('');
@@ -255,9 +277,10 @@ export function generateInpFile(nodes: WhamoNode[], edges: WhamoEdge[], autoDown
   const flowBoundaries = nodes.filter(n => n.type === 'flowBoundary');
   flowBoundaries.forEach(n => {
     const d = n.data;
+    const unit = d.unit || globalUnit;
     let schedule = '';
     if (d.schedulePoints && Array.isArray(d.schedulePoints) && d.schedulePoints.length > 0) {
-      schedule = d.schedulePoints.map((p: any) => `T ${p.time} Q ${p.flow}`).join(' ');
+      schedule = d.schedulePoints.map((p: any) => `T ${p.time} Q ${toFPS(Number(p.flow), unit, 'flow')}`).join(' ');
     } else {
       schedule = 'T 0 Q 3000 T 20 Q 0 T 3000 Q 0';
     }

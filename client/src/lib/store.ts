@@ -15,10 +15,13 @@ import {
 } from '@xyflow/react';
 import { NodeType, LinkType } from '@shared/schema';
 
+export type UnitSystem = 'SI' | 'FPS';
+
 // Define base data structures for our specific engineering domain
 interface NodeData extends Record<string, unknown> {
   label: string;
   type: NodeType;
+  unit?: UnitSystem;
   elevation?: number;
   nodeNumber?: number;
   comment?: string;
@@ -29,11 +32,15 @@ interface NodeData extends Record<string, unknown> {
   celerity?: number;
   friction?: number;
   scheduleNumber?: number;
+  schedulePoints?: { time: number; flow: number }[];
+  tankTop?: number;
+  tankBottom?: number;
 }
 
 interface EdgeData extends Record<string, unknown> {
   label: string;
   type: LinkType;
+  unit?: UnitSystem;
   length?: number;
   diameter?: number;
   celerity?: number;
@@ -77,6 +84,7 @@ interface NetworkState {
   projectName: string;
   projectNameError: string | null;
   loadedFileHandle: FileSystemFileHandle | null;
+  globalUnit: UnitSystem;
   history: {
     past: Partial<NetworkState>[];
     future: Partial<NetworkState>[];
@@ -100,6 +108,7 @@ interface NetworkState {
   setProjectName: (name: string) => void;
   setProjectNameError: (error: string | null) => void;
   setLoadedFileHandle: (handle: FileSystemFileHandle | null) => void;
+  setGlobalUnit: (unit: UnitSystem) => void;
   undo: () => void;
   redo: () => void;
   saveToHistory: () => void;
@@ -123,9 +132,15 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
   projectName: "Untitled Network",
   projectNameError: null,
   loadedFileHandle: null,
+  globalUnit: 'SI',
   history: {
     past: [],
     future: [],
+  },
+
+  setGlobalUnit: (unit: UnitSystem) => {
+    get().saveToHistory();
+    set({ globalUnit: unit });
   },
 
   onNodesChange: (changes: NodeChange[]) => {

@@ -17,7 +17,8 @@ export function PropertiesPanel() {
     selectedElementType, 
     updateNodeData, 
     updateEdgeData,
-    deleteElement
+    deleteElement,
+    globalUnit
   } = useNetworkStore();
 
   if (!selectedElementId) return null;
@@ -28,6 +29,62 @@ export function PropertiesPanel() {
     : edges.find(e => e.id === selectedElementId);
 
   if (!element) return null;
+
+  const currentUnit = (element.data?.unit as UnitSystem) || globalUnit;
+
+  const SI_TO_FPS = {
+    length: 3.28084, // m to ft
+    diameter: 3.28084, // m to ft
+    elevation: 3.28084, // m to ft
+    celerity: 3.28084, // m/s to ft/s
+    area: 10.7639, // m2 to ft2
+    flow: 35.3147, // m3/s to ft3/s
+  };
+
+  const convertValue = (value: number, from: UnitSystem, to: UnitSystem, type: keyof typeof SI_TO_FPS) => {
+    if (from === to) return value;
+    const factor = SI_TO_FPS[type] || 1;
+    return to === 'FPS' ? value * factor : value / factor;
+  };
+
+  const handleUnitToggle = (newUnit: UnitSystem) => {
+    if (newUnit === currentUnit) return;
+
+    const dataUpdate: any = { unit: newUnit };
+    const fieldsToConvert: (keyof typeof SI_TO_FPS)[] = ['length', 'diameter', 'elevation', 'celerity', 'area', 'tankTop', 'tankBottom', 'distance'];
+    
+    // We map specialized fields to their conversion types
+    const fieldMapping: Record<string, keyof typeof SI_TO_FPS> = {
+      length: 'length',
+      diameter: 'diameter',
+      elevation: 'elevation',
+      tankTop: 'elevation',
+      tankBottom: 'elevation',
+      distance: 'length',
+      celerity: 'celerity',
+      area: 'area'
+    };
+
+    Object.entries(element.data || {}).forEach(([key, value]) => {
+      if (typeof value === 'number' && fieldMapping[key]) {
+        dataUpdate[key] = Number(convertValue(value, currentUnit, newUnit, fieldMapping[key]).toFixed(4));
+      }
+    });
+
+    // Handle schedule points for Flow Boundary
+    if (element.data?.schedulePoints) {
+      dataUpdate.schedulePoints = (element.data.schedulePoints as any[]).map(p => ({
+        ...p,
+        flow: Number(convertValue(p.flow, currentUnit, newUnit, 'flow').toFixed(4))
+      }));
+    }
+
+    if (isNode) {
+      updateNodeData(selectedElementId, dataUpdate);
+    } else {
+      updateEdgeData(selectedElementId, dataUpdate);
+    }
+  };
 
   const handleChange = (key: string, value: any) => {
     const numValue = parseFloat(value);
@@ -60,6 +117,36 @@ export function PropertiesPanel() {
           <Trash2 className="h-4 w-4" />
           Delete Element
         </Button>
+
+        <Separator />
+
+        {/* Unit Selection */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-semibold text-foreground/80">Units</h4>
+            <div className="flex bg-muted rounded-md p-1 gap-1">
+              <Button 
+                variant={currentUnit === 'SI' ? 'secondary' : 'ghost'} 
+                size="sm" 
+                className="h-7 px-2 text-xs"
+                onClick={() => handleUnitToggle('SI')}
+              >
+                SI
+              </Button>
+              <Button 
+                variant={currentUnit === 'FPS' ? 'secondary' : 'ghost'} 
+                size="sm" 
+                className="h-7 px-2 text-xs"
+                onClick={() => handleUnitToggle('FPS')}
+              >
+                FPS
+              </Button>
+            </div>
+          </div>
+          <p className="text-[10px] text-muted-foreground italic">
+            Changing unit will auto-convert existing numeric values.
+          </p>
+        </div>
 
         <Separator />
 
@@ -123,7 +210,7 @@ export function PropertiesPanel() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="elev">Elevation (m)</Label>
+                <Label htmlFor="elev">Elevation ({currentUnit === 'SI' ? 'm' : 'ft'})</Label>
                 <Input 
                   id="elev" 
                   type="number" 
@@ -176,7 +263,7 @@ export function PropertiesPanel() {
                             />
                           </div>
                           <div className="grid gap-1 flex-1">
-                            <Label className="text-[10px]">Flow (Q)</Label>
+                            <Label className="text-[10px]">Flow (Q) ({currentUnit === 'SI' ? 'm³/s' : 'ft³/s'})</Label>
                             <Input 
                               type="number"
                               className="h-7 text-xs"
@@ -214,7 +301,7 @@ export function PropertiesPanel() {
           {isNode && element.data?.type === 'surgeTank' && (
             <>
               <div className="grid gap-2">
-                <Label htmlFor="tankTop">Top Elevation (m)</Label>
+                <Label htmlFor="tankTop">Top Elevation ({currentUnit === 'SI' ? 'm' : 'ft'})</Label>
                 <Input 
                   id="tankTop" 
                   type="number" 
@@ -223,7 +310,7 @@ export function PropertiesPanel() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="tankBottom">Bottom Elevation (m)</Label>
+                <Label htmlFor="tankBottom">Bottom Elevation ({currentUnit === 'SI' ? 'm' : 'ft'})</Label>
                 <Input 
                   id="tankBottom" 
                   type="number" 
@@ -232,7 +319,7 @@ export function PropertiesPanel() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="diam">Diameter (m)</Label>
+                <Label htmlFor="diam">Diameter ({currentUnit === 'SI' ? 'm' : 'ft'})</Label>
                 <Input 
                   id="diam" 
                   type="number" 
@@ -257,7 +344,7 @@ export function PropertiesPanel() {
               {element.data?.variable && (
                 <div className="grid grid-cols-2 gap-4 p-3 bg-muted/30 rounded-md border border-border/50 mb-4">
                   <div className="space-y-2">
-                    <Label htmlFor="distance">DISTANCE</Label>
+                    <Label htmlFor="distance">DISTANCE ({currentUnit === 'SI' ? 'm' : 'ft'})</Label>
                     <Input 
                       id="distance" 
                       type="number" 
@@ -266,7 +353,7 @@ export function PropertiesPanel() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="area">AREA</Label>
+                    <Label htmlFor="area">AREA ({currentUnit === 'SI' ? 'm²' : 'ft²'})</Label>
                     <Input 
                       id="area" 
                       type="number" 
@@ -275,7 +362,7 @@ export function PropertiesPanel() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="d">D</Label>
+                    <Label htmlFor="d">D ({currentUnit === 'SI' ? 'm' : 'ft'})</Label>
                     <Input 
                       id="d" 
                       type="number" 
@@ -284,7 +371,7 @@ export function PropertiesPanel() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="a">A</Label>
+                    <Label htmlFor="a">A ({currentUnit === 'SI' ? 'm²' : 'ft²'})</Label>
                     <Input 
                       id="a" 
                       type="number" 
@@ -297,7 +384,7 @@ export function PropertiesPanel() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="length">Length (m)</Label>
+                  <Label htmlFor="length">Length ({currentUnit === 'SI' ? 'm' : 'ft'})</Label>
                   <Input 
                     id="length" 
                     type="number" 
@@ -307,7 +394,7 @@ export function PropertiesPanel() {
                 </div>
                 {!element.data?.variable && (
                   <div className="space-y-2">
-                    <Label htmlFor="diam">Diameter (m)</Label>
+                    <Label htmlFor="diam">Diameter ({currentUnit === 'SI' ? 'm' : 'ft'})</Label>
                     <Input 
                       id="diam" 
                       type="number" 
@@ -319,7 +406,7 @@ export function PropertiesPanel() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="celerity">Wave Speed (m/s)</Label>
+                  <Label htmlFor="celerity">Wave Speed ({currentUnit === 'SI' ? 'm/s' : 'ft/s'})</Label>
                   <Input 
                     id="celerity" 
                     type="number" 

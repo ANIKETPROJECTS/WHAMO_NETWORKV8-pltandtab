@@ -109,7 +109,9 @@ export function Header({
     undo,
     redo,
     history,
-    loadedFileHandle
+    loadedFileHandle,
+    globalUnit,
+    setGlobalUnit
   } = useNetworkStore();
 
   const [localParams, setLocalParams] = useState(computationalParams);
@@ -420,6 +422,26 @@ export function Header({
                 >
                   <ArrowRightCircle className="w-4 h-4 text-green-600" /> Flow
                   BC
+                </MenubarItem>
+              </MenubarContent>
+            </MenubarMenu>
+
+            <MenubarMenu>
+              <MenubarTrigger className="text-[14px] font-normal h-7 text-black hover:bg-[#f1f3f4] data-[state=open]:bg-[#f1f3f4] px-2 rounded cursor-default">
+                Configuration
+              </MenubarTrigger>
+              <MenubarContent>
+                <MenubarItem 
+                  className="flex items-center justify-between"
+                  onClick={() => setGlobalUnit('SI')}
+                >
+                  SI (Metric) {globalUnit === 'SI' && <Settings2 className="w-3 h-3 ml-2" />}
+                </MenubarItem>
+                <MenubarItem 
+                  className="flex items-center justify-between"
+                  onClick={() => setGlobalUnit('FPS')}
+                >
+                  FPS (Imperial) {globalUnit === 'FPS' && <Settings2 className="w-3 h-3 ml-2" />}
                 </MenubarItem>
               </MenubarContent>
             </MenubarMenu>
