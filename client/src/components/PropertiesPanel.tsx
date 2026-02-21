@@ -1,4 +1,4 @@
-import { useNetworkStore } from '@/lib/store';
+import { useNetworkStore, type UnitSystem } from '@/lib/store';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -51,7 +51,6 @@ export function PropertiesPanel() {
     if (newUnit === currentUnit) return;
 
     const dataUpdate: any = { unit: newUnit };
-    const fieldsToConvert: (keyof typeof SI_TO_FPS)[] = ['length', 'diameter', 'elevation', 'celerity', 'area', 'tankTop', 'tankBottom', 'distance'];
     
     // We map specialized fields to their conversion types
     const fieldMapping: Record<string, keyof typeof SI_TO_FPS> = {
