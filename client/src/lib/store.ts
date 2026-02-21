@@ -195,6 +195,19 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
         get().edges
       ),
     });
+
+    // Auto-select output requests for the new edge
+    const availableVars = ["Q", "HEAD", "ELEV", "VEL", "PRESS", "PIEZHEAD"];
+    const requestTypes: ("HISTORY" | "PLOT" | "SPREADSHEET")[] = ["HISTORY", "PLOT", "SPREADSHEET"];
+    const newRequests: OutputRequest[] = requestTypes.map(reqType => ({
+      id: `req-${Date.now()}-${Math.random()}`,
+      elementId: id,
+      elementType: 'edge',
+      requestType: reqType,
+      variables: [...availableVars]
+    }));
+    
+    set({ outputRequests: [...get().outputRequests, ...newRequests] });
   },
 
   addNode: (type, position) => {
@@ -232,6 +245,19 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
     };
 
     set({ nodes: [...get().nodes, newNode] });
+    
+    // Auto-select output requests for the new node
+    const availableVars = ["Q", "HEAD", "ELEV", "VEL", "PRESS", "PIEZHEAD"];
+    const requestTypes: ("HISTORY" | "PLOT" | "SPREADSHEET")[] = ["HISTORY", "PLOT", "SPREADSHEET"];
+    const newRequests: OutputRequest[] = requestTypes.map(reqType => ({
+      id: `req-${Date.now()}-${Math.random()}`,
+      elementId: id,
+      elementType: 'node',
+      requestType: reqType,
+      variables: [...availableVars]
+    }));
+    
+    set({ outputRequests: [...get().outputRequests, ...newRequests] });
   },
 
   updateNodeData: (id, data) => {
