@@ -101,6 +101,7 @@ interface NetworkState {
   selectElement: (id: string | null, type: 'node' | 'edge' | null) => void;
   loadNetwork: (nodes: WhamoNode[], edges: WhamoEdge[], params?: ComputationalParameters, requests?: OutputRequest[], projectName?: string, fileHandle?: FileSystemFileHandle) => void;
   clearNetwork: () => void;
+  autoSelectOutputRequests: () => void;
   updateComputationalParams: (params: Partial<ComputationalParameters>) => void;
   addOutputRequest: (request: Omit<OutputRequest, 'id'>) => void;
   removeOutputRequest: (id: string) => void;
@@ -356,6 +357,40 @@ export const useNetworkStore = create<NetworkState>((set, get) => ({
       loadedFileHandle: null
     });
     idCounter = 1;
+  },
+
+  autoSelectOutputRequests: () => {
+    const { nodes, edges } = get();
+    const availableVars = ["Q", "HEAD", "ELEV", "VEL", "PRESS", "PIEZHEAD"];
+    const requestTypes: ("HISTORY" | "PLOT" | "SPREADSHEET")[] = ["HISTORY", "PLOT", "SPREADSHEET"];
+    
+    const newRequests: OutputRequest[] = [];
+    
+    nodes.forEach(node => {
+      requestTypes.forEach(reqType => {
+        newRequests.push({
+          id: `req-${Date.now()}-${Math.random()}`,
+          elementId: node.id,
+          elementType: 'node',
+          requestType: reqType,
+          variables: [...availableVars]
+        });
+      });
+    });
+
+    edges.forEach(edge => {
+      requestTypes.forEach(reqType => {
+        newRequests.push({
+          id: `req-${Date.now()}-${Math.random()}`,
+          elementId: edge.id,
+          elementType: 'edge',
+          requestType: reqType,
+          variables: [...availableVars]
+        });
+      });
+    });
+
+    set({ outputRequests: newRequests });
   },
 
   updateComputationalParams: (params) => {
