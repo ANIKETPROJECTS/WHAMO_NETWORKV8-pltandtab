@@ -5,6 +5,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ReactNode } from "react";
+import { useNetworkStore } from "@/lib/store";
 
 interface TooltipWrapperProps {
   children: ReactNode;
@@ -39,7 +40,8 @@ export function TooltipWrapper({
 export function DataList({ data, title }: { data: any, title: string }) {
   if (!data) return null;
   
-  const unit = data.unit || 'SI';
+  const globalUnit = useNetworkStore(state => state.globalUnit);
+  const unit = data.unit || globalUnit;
   const entries = Object.entries(data).filter(([key]) => 
     key !== 'id' && key !== 'label' && key !== 'unit' && key !== 'type'
   );
