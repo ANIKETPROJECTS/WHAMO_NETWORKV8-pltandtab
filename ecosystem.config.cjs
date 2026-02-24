@@ -1,11 +1,11 @@
 module.exports = {
   apps: [
     {
-      name: "whamo-designer",
+      name: "whamo-app",
       script: "./dist/index.cjs",
       env: {
         NODE_ENV: "production",
-        PORT: 5000
+        PORT: 3006
       }
     }
   ]
