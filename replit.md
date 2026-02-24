@@ -57,8 +57,8 @@ Preferred communication style: Simple, everyday language.
 ## External Dependencies
 
 ### Database
-- **PostgreSQL**: Primary data store, connection via `DATABASE_URL` environment variable
-- **Drizzle ORM**: Type-safe database queries and schema management
+- **In-Memory Storage**: Currently using in-memory storage (MemStorage class in server/storage.ts)
+- **Drizzle ORM**: Schema definitions available for future database integration
 
 ### Key NPM Packages
 - **@xyflow/react**: Interactive node-graph diagram editor for the network canvas
