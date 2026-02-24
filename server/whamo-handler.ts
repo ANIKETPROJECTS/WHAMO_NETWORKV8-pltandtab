@@ -1,4 +1,4 @@
-import { execFile } from "child_process";
+import { exec } from "child_process";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
@@ -7,124 +7,85 @@ import { v4 as uuidv4 } from "uuid";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Ensure __dirname is always a string for path functions
-const dirnameStr = String(__dirname);
-
 export function setupWhamoRoutes(app: any) {
   const tempDir = path.join(process.cwd(), "temp");
   if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
-  const engineDir = path.join(process.cwd(), "server", "engine");
-  if (!fs.existsSync(engineDir)) fs.mkdirSync(engineDir, { recursive: true });
+  const enginePath = path.join(process.cwd(), "server", "engines", "WHAMO.EXE");
 
-  app.post("/api/run-whamo", (req: any, res: any) => {
+  app.post("/api/generate-out", async (req: any, res: any) => {
     const { inpContent } = req.body;
+    if (!inpContent) {
+      return res.status(400).json({ success: false, error: "No INP content provided" });
+    }
+
     const tempId = uuidv4();
     const runDir = path.join(tempDir, tempId);
-    fs.mkdirSync(runDir, { recursive: true });
+    
+    try {
+      fs.mkdirSync(runDir, { recursive: true });
 
-    const inpPath = path.join(runDir, "network.inp");
-    const outPath = path.join(runDir, "network.out");
-    // The provided prompt says engine is at /server/engine/whamo.exe
-    const exePath = path.join(engineDir, "whamo.exe");
+      // 1. Copy whamo.exe and .inp into temp directory
+      const localExePath = path.join(runDir, "whamo.exe");
+      const localInpPath = path.join(runDir, "input.inp");
+      
+      fs.copyFileSync(enginePath, localExePath);
+      fs.writeFileSync(localInpPath, inpContent);
 
-    if (inpContent) {
-      fs.writeFileSync(inpPath, inpContent);
-    } else {
-      // Fallback if content wasn't sent but file might exist from previous save-inp (deprecated approach)
-      const oldInpPath = path.join(tempDir, "network.inp");
-      if (fs.existsSync(oldInpPath)) {
-        fs.copyFileSync(oldInpPath, inpPath);
-      } else {
-        return res.status(400).send("INP content not provided and no saved network.inp found.");
-      }
-    }
+      // 2. Run wine whamo.exe
+      const command = `wine whamo.exe`;
+      // 3. Pass filenames via stdin
+      const stdinContent = `input.inp\ninput_OUT.OUT\ninput_PLT.PLT\ninput_SHEET.TAB\n`;
 
-    if (!fs.existsSync(exePath)) {
-       // Fallback to sample if engine missing (for testing/demo)
-       const sampleOutPath = path.join(process.cwd(), "attached_assets", "1_OUT_1770798402859.OUT");
-       if (fs.existsSync(sampleOutPath)) {
-         console.warn("Engine missing, falling back to sample output");
-         return res.download(sampleOutPath, "network.out", () => {
-           fs.rmSync(runDir, { recursive: true, force: true });
-         });
-       }
-       return res.status(500).send("WHAMO engine not found at " + exePath);
-    }
-
-    execFile("wine", [exePath, "network.inp", "network.out"], { cwd: runDir }, (error, stdout, stderr) => {
-      if (error) {
-        console.error("WHAMO Error:", error);
-        // Fallback to sample even on execution error if it exists
-        const sampleOutPath = path.join(process.cwd(), "attached_assets", "1_OUT_1770798402859.OUT");
-        if (fs.existsSync(sampleOutPath)) {
-           return res.download(sampleOutPath, "network_error_fallback.out", () => {
-             fs.rmSync(runDir, { recursive: true, force: true });
-           });
+      const child = exec(command, { cwd: runDir, timeout: 60000 }, (error, stdout, stderr) => {
+        if (error) {
+          console.error("WHAMO execution error:", error);
+          return res.status(500).json({
+            success: false,
+            error: "WHAMO execution failed",
+            details: stderr || error.message
+          });
         }
-        return res.status(500).send("WHAMO execution failed: " + stderr);
-      }
 
-      if (!fs.existsSync(outPath)) {
-        return res.status(500).send("OUT file not generated.");
-      }
+        // 4. Collect results as base64
+        try {
+          const outPath = path.join(runDir, "input_OUT.OUT");
+          const pltPath = path.join(runDir, "input_PLT.PLT");
+          const tabPath = path.join(runDir, "input_SHEET.TAB");
 
-      res.download(outPath, "network.out", (err: any) => {
-        fs.rmSync(runDir, { recursive: true, force: true });
+          const files: any = {};
+          if (fs.existsSync(outPath)) files.out = fs.readFileSync(outPath).toString("base64");
+          if (fs.existsSync(pltPath)) files.plt = fs.readFileSync(pltPath).toString("base64");
+          if (fs.existsSync(tabPath)) files.tab = fs.readFileSync(tabPath).toString("base64");
+
+          if (Object.keys(files).length === 0) {
+            return res.status(500).json({ success: false, error: "No output files generated" });
+          }
+
+          res.json({ success: true, files });
+        } catch (readError: any) {
+          res.status(500).json({ success: false, error: "Error reading results", details: readError.message });
+        } finally {
+          // Cleanup
+          fs.rmSync(runDir, { recursive: true, force: true });
+        }
       });
-    });
+
+      if (child.stdin) {
+        child.stdin.write(stdinContent);
+        child.stdin.end();
+      }
+    } catch (err: any) {
+      console.error("Setup error:", err);
+      res.status(500).json({ success: false, error: "Internal server error", details: err.message });
+      if (fs.existsSync(runDir)) fs.rmSync(runDir, { recursive: true, force: true });
+    }
   });
 
-  app.post("/api/run-external-whamo", (req: any, res: any) => {
-    const { inpContent, fileName } = req.body;
-    if (!inpContent) return res.status(400).send("No INP content provided");
-
-    const tempId = uuidv4();
-    const runDir = path.join(tempDir, tempId);
-    fs.mkdirSync(runDir, { recursive: true });
-
-    const inpPath = path.join(runDir, "input.inp");
-    const outPath = path.join(runDir, "output.out");
-    const exePath = path.join(engineDir, "whamo.exe");
-
-    fs.writeFileSync(inpPath, inpContent);
-
-    if (!fs.existsSync(exePath)) {
-      const sampleOutPath = path.join(process.cwd(), "attached_assets", "1_OUT_1770798402859.OUT");
-      if (fs.existsSync(sampleOutPath)) {
-        return res.download(sampleOutPath, fileName?.replace(".inp", ".out") || "output.out", (err: any) => {
-          fs.rmSync(runDir, { recursive: true, force: true });
-        });
-      }
-      return res.status(500).send("WHAMO engine not found");
-    }
-
-    execFile("wine", [exePath, "input.inp", "output.out"], { cwd: runDir }, (error, stdout, stderr) => {
-      if (error) {
-        console.error("WHAMO External Error:", error);
-        // Fallback to sample on error
-        const sampleOutPath = path.join(process.cwd(), "attached_assets", "1_OUT_1770798402859.OUT");
-        if (fs.existsSync(sampleOutPath)) {
-          return res.download(sampleOutPath, fileName?.replace(".inp", ".out") || "output.out", (err: any) => {
-            fs.rmSync(runDir, { recursive: true, force: true });
-          });
-        }
-        return res.status(500).send("WHAMO execution failed: " + stderr);
-      }
-      if (!fs.existsSync(outPath)) {
-        // Fallback to sample if file not generated
-        const sampleOutPath = path.join(process.cwd(), "attached_assets", "1_OUT_1770798402859.OUT");
-        if (fs.existsSync(sampleOutPath)) {
-          return res.download(sampleOutPath, fileName?.replace(".inp", ".out") || "output.out", (err: any) => {
-            fs.rmSync(runDir, { recursive: true, force: true });
-          });
-        }
-        return res.status(500).send("OUT file not generated");
-      }
-      
-      res.download(outPath, fileName?.replace(".inp", ".out") || "output.out", (err: any) => {
-        fs.rmSync(runDir, { recursive: true, force: true });
-      });
-    });
+  // Alias for backward compatibility if needed
+  app.post("/api/run-whamo", (req: any, res: any) => {
+    // Redirect or reuse the logic
+    req.url = "/api/generate-out";
+    app._router.handle(req, res);
   });
 }
